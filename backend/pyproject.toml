@@ -8,6 +8,8 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.9"
 aws-lambda-powertools = "^1.27.0"
+Authlib = "^1.0.1"
+boto3 = "^1.24.66"
 
 [tool.poetry.dev-dependencies]
 
