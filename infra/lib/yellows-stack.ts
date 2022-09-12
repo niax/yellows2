@@ -1,6 +1,6 @@
 import { Stack, StackProps, Duration, CfnParameter, SecretValue } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { DockerImageFunction, DockerImageCode, IFunction } from 'aws-cdk-lib/aws-lambda';
+import { DockerImageFunction, DockerImageCode, IFunction, Tracing } from 'aws-cdk-lib/aws-lambda';
 import { LambdaRestApi, AccessLogFormat, LogGroupLogDestination, MethodLoggingLevel, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Distribution, PriceClass, SecurityPolicyProtocol, OriginRequestPolicy, CachePolicy, ViewerProtocolPolicy, AllowedMethods, OriginRequestHeaderBehavior, OriginAccessIdentity, OriginRequestCookieBehavior, OriginRequestQueryStringBehavior } from 'aws-cdk-lib/aws-cloudfront';
@@ -74,6 +74,11 @@ export class YellowsStack extends Stack {
       sortKey: { name: 'PK', type: AttributeType.STRING },
       indexName: 'InvertedIndex',
     });
+    table.addGlobalSecondaryIndex({
+      partitionKey: { name: 'Type', type: AttributeType.STRING },
+      sortKey: { name: 'IndexSortOrder', type: AttributeType.NUMBER },
+      indexName: 'TypeIndexOrder',
+    });
     return table;
   }
 
@@ -126,6 +131,7 @@ export class YellowsStack extends Stack {
         JWT_SECRET_ARN: jwtSecret.secretArn,
         DDB_TABLE_NAME: dataTable.tableName,
       },
+      tracing: Tracing.ACTIVE,
     });
     dataTable.grantReadWriteData(apiLambda);
     discordSecret.grantRead(apiLambda);

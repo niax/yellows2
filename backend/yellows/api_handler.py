@@ -2,15 +2,11 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver
 from aws_lambda_powertools.logging import Logger, correlation_paths
 from aws_lambda_powertools.tracing import Tracer
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from aws_xray_sdk.core import patch as xray_patch
 
 from . import views
 
 tracer = Tracer()
-
-import botocore
-import requests
-xray_patch(['botocore', 'requests'])
+tracer.patch()
 logger = Logger()
 
 app = APIGatewayRestResolver()
