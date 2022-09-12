@@ -1,7 +1,8 @@
 from functools import cached_property
 from typing_extensions import Self
 
-from yellows.models.login import Login, LoginModel
+from yellows.models.login import LoginDao
+from yellows.models.login_items import *
 
 yellows_model = None
 class YellowsModel:
@@ -13,5 +14,5 @@ class YellowsModel:
         return yellows_model
 
     @cached_property
-    def login(self) -> LoginModel:
-        return LoginModel.load_from_config()
+    def login(self) -> LoginDao:
+        return LoginDao.load_from_config()

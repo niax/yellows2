@@ -1,19 +1,12 @@
 from datetime import datetime
-from typing import List, Optional, cast
+from typing import Optional 
 from typing_extensions import Self
-from dataclasses import dataclass
 
-from dynamodb_json import json_util as ddb_json
 from mypy_boto3_dynamodb.client import DynamoDBClient
 from yellows.config import get_config
+from yellows.models.login_items import Login
 
-@dataclass
-class Login:
-    login_id: str
-    scope: List[str]
-    last_login: datetime
-
-class LoginModel:
+class LoginDao:
     @classmethod
     def load_from_config(cls) -> Self:
         config = get_config()
@@ -25,15 +18,8 @@ class LoginModel:
         self.ddb_client = ddb_client
         self.table_name = table_name
 
-    def _get_key(self, login_id) -> dict:
-        key = f'LOGIN_{login_id}'
-        return cast(dict, ddb_json.dumps({
-            'PK': key,
-            'SK': key,
-        }, as_dict=True))
-
     def get_login(self, login_id) -> Optional[Login]:
-        key = self._get_key(login_id)
+        key = Login.make_key(login_id)
         ddb_item = self.ddb_client.get_item(
             TableName=self.table_name,
             Key=key,
@@ -41,16 +27,11 @@ class LoginModel:
 
         if ddb_item is None:
             return None
-
-        item = ddb_json.loads(ddb_item)
-        return Login(
-            login_id=item['LoginId'],
-            scope=item['Scope'],
-            last_login=item['LastLogin'],
-        )
+        
+        return Login.from_ddb(ddb_item)
 
     def update_last_login(self, login_id):
-        key = self._get_key(login_id)
+        key = Login.make_key(login_id)
         self.ddb_client.update_item(
             TableName=self.table_name,
             Key=key,
