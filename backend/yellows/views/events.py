@@ -8,5 +8,10 @@ router = Router()
 
 @router.get('/')
 @auth_required()
-def get():
-    return {"foo": "bar"}
+def get(user=None):
+    return user.__dict__
+
+@router.get('/')
+@auth_required('event-admin')
+def post(user=None):
+    return user.__dict__

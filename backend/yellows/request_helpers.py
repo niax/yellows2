@@ -2,8 +2,7 @@
 from urllib.parse import urlencode, urlunparse
 from aws_lambda_powertools.event_handler.api_gateway import Router
 
-from yellows.settings import get_config
-
+from yellows.config import get_config
 
 router = Router()
 

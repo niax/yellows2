@@ -2,6 +2,9 @@ from functools import cached_property
 import os
 import boto3
 import json
+from aws_lambda_powertools.logging import Logger
+
+logger = Logger()
 
 class Config:
     @cached_property
@@ -18,8 +21,10 @@ class Config:
         return self.boto_session.client('secretsmanager')
 
     def _get_secret_dict(self, envvar) -> dict:
+        secret_id = os.environ[envvar]
+        logger.info("Fetching %s (%s)", secret_id, envvar)
         secret = self.secrets_manager_client.get_secret_value(
-            SecretId=os.environ[envvar]
+            SecretId=secret_id,
         )
         return json.loads(secret['SecretString'])
 
