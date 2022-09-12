@@ -3,6 +3,8 @@ import os
 import boto3
 import json
 from aws_lambda_powertools.logging import Logger
+from mypy_boto3_secretsmanager.client import SecretsManagerClient
+from mypy_boto3_dynamodb.client import DynamoDBClient
 
 logger = Logger()
 
@@ -17,7 +19,11 @@ class Config:
         return 'd2jomohx0mu2kp.cloudfront.net'
 
     @cached_property
-    def secrets_manager_client(self):
+    def dynamodb_client(self) -> DynamoDBClient:
+        return self.boto_session.client('dynamodb')
+
+    @cached_property
+    def secrets_manager_client(self) -> SecretsManagerClient:
         return self.boto_session.client('secretsmanager')
 
     def _get_secret_dict(self, envvar) -> dict:
@@ -51,6 +57,9 @@ class Config:
     @property
     def jwt_private_key(self) -> str:
         return self._jwt_secret['privateKey']
+
+    def get_dynamo_table_name(self) -> str:
+        return os.environ['DDB_TABLE_NAME']
 
 _config = None
 def get_config() -> Config:

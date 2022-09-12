@@ -8,6 +8,7 @@ import { RestApiOrigin, S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Bucket, BucketEncryption, IBucket } from 'aws-cdk-lib/aws-s3';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { ISecret, Secret } from 'aws-cdk-lib/aws-secretsmanager';
+import { ITable, Table, AttributeType, BillingMode } from 'aws-cdk-lib/aws-dynamodb';
 
 export interface YellowsStackProps extends StackProps {
 }
@@ -16,7 +17,8 @@ export class YellowsStack extends Stack {
   constructor(scope: Construct, id: string, props: YellowsStackProps) {
     super(scope, id, props);
 
-    const apiLambda = this.makeBackendFunction();
+    const dataTable = this.makeDataTable();
+    const apiLambda = this.makeBackendFunction(dataTable);
     const apiGw = this.makeApiGateway(apiLambda);
     const staticBucket = this.makeStaticContent();
 
@@ -60,6 +62,21 @@ export class YellowsStack extends Stack {
     this.exportValue(cloudfrontDistro.domainName);
   }
 
+  private makeDataTable(): ITable {
+    const table = new Table(this, 'DataTable', {
+      partitionKey: { name: 'PK', type: AttributeType.STRING },
+      sortKey: { name: 'SK', type: AttributeType.STRING },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'TimeToLive',
+    });
+    table.addGlobalSecondaryIndex({
+      partitionKey: { name: 'SK', type: AttributeType.STRING },
+      sortKey: { name: 'PK', type: AttributeType.STRING },
+      indexName: 'InvertedIndex',
+    });
+    return table;
+  }
+
   private makeDiscordSecret(): ISecret {
     const clientIdParam = new CfnParameter(this, 'DiscordClientId', {
       type: "String",
@@ -94,7 +111,7 @@ export class YellowsStack extends Stack {
     });
   }
 
-  private makeBackendFunction(): IFunction {
+  private makeBackendFunction(dataTable: ITable): IFunction {
     const discordSecret = this.makeDiscordSecret();
     const jwtSecret = this.makeJwtSecret();
     const apiLambda = new DockerImageFunction(this, 'BackendFunction', {
@@ -107,8 +124,10 @@ export class YellowsStack extends Stack {
         POWERTOOLS_SERVICE_NAME: 'Yellows-Web',
         DISCORD_OAUTH2_SECRET_ARN: discordSecret.secretArn,
         JWT_SECRET_ARN: jwtSecret.secretArn,
+        DDB_TABLE_NAME: dataTable.tableName,
       },
     });
+    dataTable.grantReadWriteData(apiLambda);
     discordSecret.grantRead(apiLambda);
     jwtSecret.grantRead(apiLambda);
 

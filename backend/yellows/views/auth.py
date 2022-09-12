@@ -33,7 +33,7 @@ def login_redir_get():
     authn = get_auth()
     # Build the original URL
     request_url = get_request_url()
-    auth_token = authn.make_jwt_for_discord(request_url)
+    auth_token = authn.login(request_url)
 
     return Response(
         status_code=302, headers={

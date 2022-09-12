@@ -11,7 +11,7 @@ router = Router()
 def get(user=None):
     return user.__dict__
 
-@router.get('/')
+@router.post('/')
 @auth_required('event-admin')
 def post(user=None):
     return user.__dict__

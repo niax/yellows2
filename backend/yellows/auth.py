@@ -11,6 +11,7 @@ from urllib.parse import urlunparse
 from http.cookies import SimpleCookie
 
 from yellows.config import get_config
+from yellows.models import Login, YellowsModel
 
 router = Router()
 logger = Logger()
@@ -22,6 +23,7 @@ DISCORD_GET_SELF_INFO_URL = 'https://discord.com/api/users/@me'
 class Auth:
     def __init__(self):
         self.config = get_config()
+        self.login_model = YellowsModel.get().login
 
     def _get_client(self):
         redirect_uri = urlunparse((
@@ -37,21 +39,39 @@ class Auth:
         auth_url, _ = client.create_authorization_url(DISCORD_AUTH_URL)
         return auth_url
 
-    def make_jwt_for_discord(self, request_url):
+    def login(self, request_url):
+        discord_info = self._get_discord_info_from_callback(request_url)
+        login_id = f'{discord_info["id"]}@discord'
+        logger.warn("Attempted login for '%s'", login_id)
+        login = self._get_and_record_login(login_id)
+        return self._make_jwt_for_login(login)
+
+    def _get_and_record_login(self, login_id) -> Login:
+        login = self.login_model.get_login(login_id)
+        if login is None:
+            raise UnauthorizedError("No permit!")
+        self.login_model.update_last_login(login_id)
+        return login
+
+    def _get_discord_info_from_callback(self, request_url):
         client = self._get_client()
-        # Prime the client with the token
-        client.fetch_token(DISCORD_TOKEN_URL, authorization_response=request_url)
-        me_resp = client.get(DISCORD_GET_SELF_INFO_URL)
-        me = me_resp.json()
+        try:
+            # Prime the client with the token
+            client.fetch_token(DISCORD_TOKEN_URL, authorization_response=request_url)
+            me_resp = client.get(DISCORD_GET_SELF_INFO_URL)
+            return me_resp.json()
+        except Exception:
+            logger.exception("Failed callback from Discord")
+            raise UnauthorizedError("Failed callback from Discord")
+
+    def _make_jwt_for_login(self, login: Login):
         now = datetime.utcnow()
         exp = now + timedelta(seconds=86400)
         claims = {
             'iss': self.config.domain_name,
-            'sub': '{}@discord'.format(me['id']),
+            'sub': login.login_id,
             'exp': exp.isoformat(),
-            'scope': [
-                'event-admin',
-            ],
+            'scope': login.scope,
         }
         return jwt.encode({'alg': 'RS256'}, claims, self.config.jwt_private_key).decode('utf-8')
 
@@ -83,8 +103,9 @@ class Auth:
         if not has_all_scopes:
             logger.warn("User missing scopes")
             raise UnauthorizedError("Insufficient access")
-        # TODO: Get a user object
-        return claims
+        # TODO: Do we need this, can we just read out the JWT?
+        login = self.login_model.get_login(claims['sub'])
+        return login
 
 _auth = None
 def get_auth() -> Auth:
