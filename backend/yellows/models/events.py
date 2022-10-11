@@ -5,6 +5,7 @@ from mypy_boto3_dynamodb.client import DynamoDBClient
 from yellows.config import get_config
 from yellows.models.base import *
 from yellows.models.event_items import Event
+from yellows.powertools import tracer
 
 class EventDao:
     @classmethod
@@ -19,6 +20,7 @@ class EventDao:
         self.table_name = table_name
 
     # TODO: Pagination!
+    @tracer.capture_method(capture_response=False)
     def list_events(self) -> List[Event]:
         query_paginator = self.ddb_client.get_paginator('query')
         page_iterator = query_paginator.paginate(

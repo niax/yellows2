@@ -100,11 +100,13 @@ export class YellowsStack extends Stack {
       logRetention: RetentionDays.FIVE_YEARS,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'Yellows-Web',
+        POWERTOOLS_METRICS_NAMESPACE: 'Yellows',
         DISCORD_OAUTH2_SECRET_ARN: discordSecret.secretArn,
         JWT_SECRET_ARN: jwtSecret.secretArn,
         DDB_TABLE_NAME: dataTable.tableName,
         DOMAIN_NAME: domainName,
       },
+      memorySize: 256,
       tracing: Tracing.ACTIVE,
     });
     dataTable.grantReadWriteData(apiLambda);

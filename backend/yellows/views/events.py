@@ -27,5 +27,6 @@ def get():
 
 @router.post('/')
 @auth_required('event-admin')
+@with_metrics
 def post(user=None):
     return user.__dict__

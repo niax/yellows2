@@ -10,8 +10,11 @@ from aws_lambda_powertools.logging import Logger
 from urllib.parse import urlunparse
 from http.cookies import SimpleCookie
 
+from aws_lambda_powertools.metrics import MetricUnit
+
 from yellows.config import get_config
 from yellows.models import Login, YellowsModel
+from yellows.powertools import metrics, tracer
 
 router = Router()
 logger = Logger()
@@ -19,6 +22,10 @@ jwt = JsonWebToken(['RS256'])
 DISCORD_AUTH_URL = 'https://discord.com/oauth2/authorize'
 DISCORD_TOKEN_URL = 'https://discord.com/api/oauth2/token'
 DISCORD_GET_SELF_INFO_URL = 'https://discord.com/api/users/@me'
+
+def _record_login(login: Login):
+    metrics.add_metadata("user", login.login_id)
+    tracer.put_annotation('user', login.login_id)
 
 class Auth:
     def __init__(self):
@@ -44,6 +51,7 @@ class Auth:
         login_id = f'{discord_info["id"]}@discord'
         logger.warn("Attempted login for '%s'", login_id)
         login = self._get_and_record_login(login_id)
+        _record_login(login)
         return self._make_jwt_for_login(login)
 
     def _get_and_record_login(self, login_id) -> Login:
@@ -53,6 +61,7 @@ class Auth:
         self.login_model.update_last_login(login_id)
         return login
 
+    @tracer.capture_method(capture_response=False)
     def _get_discord_info_from_callback(self, request_url):
         client = self._get_client()
         try:
@@ -75,7 +84,19 @@ class Auth:
         }
         return jwt.encode({'alg': 'RS256'}, claims, self.config.jwt_private_key).decode('utf-8')
 
-    def check_auth(self, required_scopes):
+    @tracer.capture_method(capture_response=False)
+    def check_auth(self, required_scopes) -> Login:
+        denied = 0
+        try:
+            return self._check_auth(required_scopes)
+        except UnauthorizedError as ue:
+            denied = 1
+            raise ue
+        finally:
+            metrics.add_metric('Unauthorized', MetricUnit.Count, denied)
+
+
+    def _check_auth(self, required_scopes) -> Login:
         cookies = SimpleCookie(router.current_event.headers.get('Cookie', ''))
         auth_cookie = cookies.get('yellows-auth')
         if auth_cookie is None:
@@ -91,7 +112,7 @@ class Auth:
                 'scope': { 'essential': True },
             })
         except BadSignatureError:
-            logger.error("Failed to validate JWT", exc_info=True)
+            logger.exception("Failed to validate JWT")
             raise UnauthorizedError("Invalid JWT")
         # Check Expiry
         expiry = datetime.fromisoformat(claims['exp'])
@@ -105,6 +126,8 @@ class Auth:
             raise UnauthorizedError("Insufficient access")
         # TODO: Do we need this, can we just read out the JWT?
         login = self.login_model.get_login(claims['sub'])
+        if login is None:
+            raise UnauthorizedError("Insufficient access")
         return login
 
 _auth = None
@@ -122,9 +145,10 @@ def auth_required(*required_claims):
         @wraps(f)
         def _inner(*args, **kwargs):
             authn = get_auth()
-            authn.check_auth(required_claims)
+            user = authn.check_auth(required_claims)
+            _record_login(user)
             if takes_user:
-                kwargs['user'] = authn.check_auth(required_claims)
+                kwargs['user'] = user
             return f(*args, **kwargs)
         return _inner
     return _deco

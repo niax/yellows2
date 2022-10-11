@@ -5,6 +5,7 @@ from typing_extensions import Self
 from mypy_boto3_dynamodb.client import DynamoDBClient
 from yellows.config import get_config
 from yellows.models.login_items import Login
+from yellows.powertools import tracer
 
 class LoginDao:
     @classmethod
@@ -18,6 +19,7 @@ class LoginDao:
         self.ddb_client = ddb_client
         self.table_name = table_name
 
+    @tracer.capture_method(capture_response=False)
     def get_login(self, login_id) -> Optional[Login]:
         key = Login.make_key(login_id)
         ddb_item = self.ddb_client.get_item(
@@ -30,6 +32,7 @@ class LoginDao:
         
         return Login.from_ddb(ddb_item)
 
+    @tracer.capture_method(capture_response=False)
     def update_last_login(self, login_id):
         key = Login.make_key(login_id)
         self.ddb_client.update_item(
