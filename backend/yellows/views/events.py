@@ -3,14 +3,14 @@ from aws_lambda_powertools.tracing import Tracer
 
 from yellows.auth import auth_required
 from yellows.models import YellowsModel
-from yellows.metrics import with_metrics
+from yellows.powertools import annotate_operation
 
 tracer = Tracer()
 router = Router()
 
 @router.get('/')
 @auth_required()
-@with_metrics
+@annotate_operation
 def get():
     dao = YellowsModel.get().events
     jsoned = []
@@ -27,6 +27,6 @@ def get():
 
 @router.post('/')
 @auth_required('event-admin')
-@with_metrics
+@annotate_operation
 def post(user=None):
     return user.__dict__

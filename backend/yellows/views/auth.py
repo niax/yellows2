@@ -3,7 +3,7 @@ from aws_lambda_powertools.event_handler.api_gateway import Router
 from aws_lambda_powertools.logging import Logger
 from aws_lambda_powertools.tracing import Tracer
 from yellows.auth import get_auth
-from yellows.metrics import with_metrics
+from yellows.powertools import annotate_operation
 from yellows.request_helpers import get_request_url
 
 tracer = Tracer()
@@ -12,7 +12,7 @@ logger = Logger()
 
 # TODO: make these POSTs?
 @router.get('/logout')
-@with_metrics
+@annotate_operation
 def logout_get():
     return Response(
         status_code=302, headers={
@@ -22,7 +22,7 @@ def logout_get():
         content_type='text/plain', body="Redir..")
 
 @router.get('/login')
-@with_metrics
+@annotate_operation
 def login_get():
     authn = get_auth()
     # Construct a redirect URL
@@ -32,7 +32,7 @@ def login_get():
         content_type='text/plain', body="Redir..")
 
 @router.get('/login-finish')
-@with_metrics
+@annotate_operation
 def login_redir_get():
     authn = get_auth()
     # Build the original URL
