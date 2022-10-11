@@ -15,8 +15,7 @@ class Config:
 
     @property
     def domain_name(self) -> str:
-        # TODO: Load this from environment
-        return 'd2jomohx0mu2kp.cloudfront.net'
+        return os.environ['DOMAIN_NAME']
 
     @cached_property
     def dynamodb_client(self) -> DynamoDBClient:

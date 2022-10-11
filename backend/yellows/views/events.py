@@ -3,12 +3,14 @@ from aws_lambda_powertools.tracing import Tracer
 
 from yellows.auth import auth_required
 from yellows.models import YellowsModel
+from yellows.metrics import with_metrics
 
 tracer = Tracer()
 router = Router()
 
 @router.get('/')
 @auth_required()
+@with_metrics
 def get():
     dao = YellowsModel.get().events
     jsoned = []
