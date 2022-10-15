@@ -17,6 +17,10 @@ class Config:
     def domain_name(self) -> str:
         return os.environ['DOMAIN_NAME']
 
+    @property
+    def kms_key_arn(self) -> str:
+        return os.environ['KMS_KEY_ARN']
+
     @cached_property
     def dynamodb_client(self) -> DynamoDBClient:
         return self.boto_session.client('dynamodb')

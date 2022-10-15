@@ -8,10 +8,11 @@ import { RestApiOrigin, S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Bucket, BucketEncryption, IBucket } from 'aws-cdk-lib/aws-s3';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { ISecret, Secret } from 'aws-cdk-lib/aws-secretsmanager';
-import { ITable, Table, AttributeType, BillingMode } from 'aws-cdk-lib/aws-dynamodb';
+import { ITable, Table, AttributeType, BillingMode, TableEncryption } from 'aws-cdk-lib/aws-dynamodb';
 import { ARecord, AaaaRecord, HostedZone, RecordTarget } from 'aws-cdk-lib/aws-route53';
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
 import { Certificate, ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
+import { Key, KeySpec, IKey } from 'aws-cdk-lib/aws-kms';
 
 export interface YellowsStackProps extends StackProps {
   domainName: string,
@@ -22,8 +23,11 @@ export class YellowsStack extends Stack {
   constructor(scope: Construct, id: string, props: YellowsStackProps) {
     super(scope, id, props);
 
-    const dataTable = this.makeDataTable();
-    const apiLambda = this.makeBackendFunction(dataTable, props.domainName);
+    const key = new Key(this, 'Key', {
+      keySpec: KeySpec.SYMMETRIC_DEFAULT,
+    });
+    const dataTable = this.makeDataTable(key);
+    const apiLambda = this.makeBackendFunction(dataTable, key, props.domainName);
     const apiGw = this.makeApiGateway(apiLambda);
     const staticBucket = this.makeStaticContent();
 
@@ -34,12 +38,14 @@ export class YellowsStack extends Stack {
     this.exportValue(cloudfrontDistro.distributionDomainName);
   }
 
-  private makeDataTable(): ITable {
+  private makeDataTable(key: IKey): ITable {
     const table = new Table(this, 'DataTable', {
       partitionKey: { name: 'PK', type: AttributeType.STRING },
       sortKey: { name: 'SK', type: AttributeType.STRING },
       billingMode: BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: 'TimeToLive',
+      encryption: TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: key,
     });
     table.addGlobalSecondaryIndex({
       partitionKey: { name: 'SK', type: AttributeType.STRING },
@@ -88,7 +94,7 @@ export class YellowsStack extends Stack {
     });
   }
 
-  private makeBackendFunction(dataTable: ITable, domainName: string): IFunction {
+  private makeBackendFunction(dataTable: ITable, key: IKey, domainName: string): IFunction {
     const discordSecret = this.makeDiscordSecret();
     const jwtSecret = this.makeJwtSecret();
 
@@ -105,6 +111,7 @@ export class YellowsStack extends Stack {
         JWT_SECRET_ARN: jwtSecret.secretArn,
         DDB_TABLE_NAME: dataTable.tableName,
         DOMAIN_NAME: domainName,
+        KMS_KEY_ARN: key.keyArn,
       },
       memorySize: 256,
       tracing: Tracing.ACTIVE,
@@ -112,6 +119,7 @@ export class YellowsStack extends Stack {
     dataTable.grantReadWriteData(apiLambda);
     discordSecret.grantRead(apiLambda);
     jwtSecret.grantRead(apiLambda);
+    key.grantEncryptDecrypt(apiLambda);
 
     return apiLambda;
   }
