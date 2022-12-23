@@ -13,6 +13,7 @@ logger = Logger()
 app = APIGatewayRestResolver()
 
 app.include_router(views.events.router, '/api/events')
+app.include_router(views.users.router, '/api/users')
 app.include_router(views.auth.router, '/api/auth')
 
 @logger.inject_lambda_context(correlation_id_path=correlation_paths.API_GATEWAY_REST)

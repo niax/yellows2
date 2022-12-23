@@ -1,50 +1,72 @@
-from typing import List, Optional, Tuple
+from datetime import datetime
 from typing_extensions import Self
-from mypy_boto3_dynamodb.client import DynamoDBClient
 
-from yellows.config import get_config
-from yellows.crypto import get_crypto
-from yellows.models.base import *
-from yellows.models.event_items import Event
-from yellows.powertools import tracer
+from pynamodb.attributes import BooleanAttribute, NumberAttribute, UTCDateTimeAttribute, UnicodeAttribute
+from pynamodb.pagination import ResultIterator
 
-class EventDao:
+from yellows.models.base import BaseItem
+from yellows.models.users import User
+
+class Event(BaseItem, discriminator="EVENT"):
+    short_name = UnicodeAttribute(attr_name="ShortName")
+    long_name = UnicodeAttribute(attr_name="LongName")
+    starts_at = UTCDateTimeAttribute(attr_name="StartsAt")
+    ends_at = UTCDateTimeAttribute(attr_name="EndsAt")
+    attendee_count = NumberAttribute(attr_name="AttendeeCount", null=True)
+    yellow_count = NumberAttribute(attr_name="YellowCount", null=True)
+
     @classmethod
-    def load_from_config(cls) -> Self:
-        config = get_config()
+    def create(cls, short_name: str, long_name: str, starts_at: datetime, ends_at: datetime) -> Self:
+        key = cls._build_key(short_name)
+        ordering = starts_at.timestamp()
         return cls(
-            config.boto_session.client('dynamodb'),
-            config.get_dynamo_table_name())
-
-    def __init__(self, ddb_client: DynamoDBClient, table_name: str):
-        self.ddb_client = ddb_client
-        self.table_name = table_name
-        self.crypto_helper = get_crypto()
-
-    @tracer.capture_method(capture_response=False)
-    def list_events(self, max_items:int=10, next_token:Optional[str]=None) -> Tuple[List[Event], Optional[str]]:
-        kwargs = {}
-        if next_token is not None:
-            kwargs['ExclusiveStartKey'] = self.crypto_helper.decrypt_dict(next_token)
-        query_result = self.ddb_client.query(
-            TableName=self.table_name,
-            IndexName=GSI_TYPE_ORDERED,
-            KeyConditionExpression="#0=:0",
-            ExpressionAttributeNames={
-                '#0': 'Type',
-            },
-            ExpressionAttributeValues={
-                ':0': {"S": 'EVENT'},
-            },
-            ScanIndexForward=False,
-            Limit=max_items,
-            **kwargs,
+            key, sk=key,
+            short_name=short_name,
+            long_name=long_name,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            type_='EVENT',
+            index_sort_order=ordering,
         )
-        events = []
-        for item in query_result['Items']:
-            events.append(Event.from_ddb(item))
-        next_token = None
-        last_key = query_result.get('LastEvaluatedKey')
-        if last_key is not None:
-            next_token = self.crypto_helper.encrypt_dict(last_key)
-        return events, next_token
+
+    @classmethod
+    def stub(cls, short_name: str) -> Self:
+        key = cls._build_key(short_name)
+        return cls(key, sk=key)
+
+    @classmethod
+    def get_by_short_name(cls, short_name:str, consistent_read:bool=False) -> Self:
+        key = cls._build_key(short_name)
+        return cls.get(hash_key=key, range_key=key, consistent_read=consistent_read)
+
+
+class EventBooking(BaseItem, discriminator='EVENTBOOKING'):
+    user_nick_name = UnicodeAttribute(attr_name="UserNickName")
+    user_full_name = UnicodeAttribute(attr_name="UserFullName")
+    event_short_name = UnicodeAttribute(attr_name="EventShortName")
+    event_long_name = UnicodeAttribute(attr_name="EventLongName")
+    eta = UnicodeAttribute(attr_name="EventEta")
+    etd = UnicodeAttribute(attr_name="EventEtd")
+    role = UnicodeAttribute(attr_name="EventRole", null=True)
+    is_team_lead = BooleanAttribute(attr_name="IsEventTeamLead")
+
+    @classmethod
+    def create(cls, event:Event, user:User, eta:str, etd:str) -> Self:
+        return cls(
+            event.pk, sk=user.pk,
+            event_short_name=event.short_name,
+            event_long_name=event.long_name,
+            user_nick_name=user.nick_name,
+            user_full_name=user.full_name,
+            eta=eta,
+            etd=etd,
+            is_team_lead=False,
+        )
+
+    @classmethod
+    def list_bookings_for_user(cls, user:User) -> ResultIterator[Self]:
+        return cls.inverted_index.query(user.pk, range_key_condition=cls.pk.startswith('EVENT_'))
+
+    @classmethod
+    def list_bookings_for_event(cls, event:Event) -> ResultIterator[Self]:
+        return cls.query(event.pk, range_key_condition=cls.sk.startswith("USER_"))

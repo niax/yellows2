@@ -83,8 +83,8 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "boto3-stubs"
-version = "1.24.89"
-description = "Type annotations for boto3 1.24.89 generated with mypy-boto3-builder 7.11.10"
+version = "1.24.91"
+description = "Type annotations for boto3 1.24.91 generated with mypy-boto3-builder 7.11.10"
 category = "main"
 optional = false
 python-versions = ">=3.7"
@@ -550,6 +550,20 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
+name = "pynamodb"
+version = "5.2.1"
+description = "A Pythonic Interface to DynamoDB"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+botocore = ">=1.12.54"
+
+[package.extras]
+signals = ["blinker (>=1.3,<2.0)"]
+
+[[package]]
 name = "python-dateutil"
 version = "2.8.2"
 description = "Extensions to the standard Python datetime module"
@@ -638,7 +652,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "d90e4585ea1413506a0b1173f8cd82686352f1cb3eaae658e43d21d20564b74a"
+content-hash = "6a0fcdfc23c43a3b7b64ff3b7d0741c5887773010db66631ce01faf6dd9c4a01"
 
 [metadata.files]
 attrs = [
@@ -666,8 +680,8 @@ boto3 = [
     {file = "boto3-1.24.66.tar.gz", hash = "sha256:60003d2b83268a303cf61b78a0b59ebe2abe87e2f21308b55a99f25fd9bca4db"},
 ]
 boto3-stubs = [
-    {file = "boto3-stubs-1.24.89.tar.gz", hash = "sha256:d994eebadabde999269c399f7bb07e9d0383b539a9fc60183aa8e2f63af60841"},
-    {file = "boto3_stubs-1.24.89-py3-none-any.whl", hash = "sha256:2b00831177acb68fd00b713bad85d0b4438c9356a3e7aae09318699ebe5d221d"},
+    {file = "boto3-stubs-1.24.91.tar.gz", hash = "sha256:e687955164420ca8139369dc768068fbed4f01159ce3eab85123103d09cbee58"},
+    {file = "boto3_stubs-1.24.91-py3-none-any.whl", hash = "sha256:98736dbfe0f78fb1437f741448aaac2634cd9e0e39c1e08f9481f44efbc523c1"},
 ]
 botocore = [
     {file = "botocore-1.27.66-py3-none-any.whl", hash = "sha256:6293d1cb392a4779cf0a44055cae9ac0728809c14a11f2d91e679a00a9beae20"},
@@ -794,6 +808,10 @@ mypy-boto3-secretsmanager = [
 pycparser = [
     {file = "pycparser-2.21-py2.py3-none-any.whl", hash = "sha256:8ee45429555515e1f6b185e78100aea234072576aa43ab53aefcae078162fca9"},
     {file = "pycparser-2.21.tar.gz", hash = "sha256:e644fdec12f7872f86c58ff790da456218b10f863970249516d60a5eaca77206"},
+]
+pynamodb = [
+    {file = "pynamodb-5.2.1-py3-none-any.whl", hash = "sha256:bb93bd86061c91508c44668c219d51d080d011f665153fa9a471ced06b2f2ee7"},
+    {file = "pynamodb-5.2.1.tar.gz", hash = "sha256:c7a9c557b52364bc09257edd00378eebc75258bbdaa0fe050fcce2356149f90a"},
 ]
 python-dateutil = [
     {file = "python-dateutil-2.8.2.tar.gz", hash = "sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86"},

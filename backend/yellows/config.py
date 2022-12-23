@@ -2,6 +2,7 @@ from functools import cached_property
 import os
 import boto3
 import json
+import pynamodb.settings
 from aws_lambda_powertools.logging import Logger
 from mypy_boto3_secretsmanager.client import SecretsManagerClient
 from mypy_boto3_dynamodb.client import DynamoDBClient
@@ -9,6 +10,11 @@ from mypy_boto3_dynamodb.client import DynamoDBClient
 logger = Logger()
 
 class Config:
+    def init_pynamodb(self):
+        class Settings:
+            region = os.environ['AWS_REGION']
+        pynamodb.settings.override_settings = Settings
+
     @cached_property
     def boto_session(self):
         return boto3.Session()
@@ -69,5 +75,6 @@ def get_config() -> Config:
     global _config
     if _config is None:
         _config = Config()
+        _config.init_pynamodb()
     return _config
 

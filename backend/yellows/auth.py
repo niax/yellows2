@@ -13,7 +13,7 @@ from http.cookies import SimpleCookie
 from aws_lambda_powertools.metrics import MetricUnit
 
 from yellows.config import get_config
-from yellows.models import Login, YellowsModel
+from yellows.models import Login
 from yellows.powertools import metrics, tracer
 
 router = Router()
@@ -30,7 +30,6 @@ def _record_login(login: Login):
 class Auth:
     def __init__(self):
         self.config = get_config()
-        self.login_model = YellowsModel.get().login
 
     def _get_client(self):
         redirect_uri = urlunparse((
@@ -55,10 +54,10 @@ class Auth:
         return self._make_jwt_for_login(login)
 
     def _get_and_record_login(self, login_id) -> Login:
-        login = self.login_model.get_login(login_id)
+        login = Login.get_by_login_id(login_id)
         if login is None:
             raise UnauthorizedError("No permit!")
-        self.login_model.update_last_login(login_id)
+        login.update_last_login()
         return login
 
     @tracer.capture_method(capture_response=False)
@@ -125,7 +124,7 @@ class Auth:
             logger.warn("User missing scopes")
             raise UnauthorizedError("Insufficient access")
         # TODO: Do we need this, can we just read out the JWT?
-        login = self.login_model.get_login(claims['sub'])
+        login = Login.get_by_login_id(claims['sub'])
         if login is None:
             raise UnauthorizedError("Insufficient access")
         return login
